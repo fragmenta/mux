@@ -92,7 +92,7 @@ func ParamsWithMux(m *Mux, r *http.Request) (*RequestParams, error) {
 	// Parse based on content type
 	contentType := r.Header.Get("Content-Type")
 
-	if contentType == "application/x-www-form-urlencoded" {
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
 		err := r.ParseForm()
 		if err != nil {
 			return nil, err
@@ -101,14 +101,20 @@ func ParamsWithMux(m *Mux, r *http.Request) (*RequestParams, error) {
 			params.Add(k, v)
 		}
 
-	} else if contentType == "multipart/form-data" {
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
 		err := r.ParseMultipartForm(20 << 20) // 20MB
 		if err != nil {
 			return nil, err
 		}
 
+		// Add the form values
 		for k, v := range r.MultipartForm.Value {
 			params.Add(k, v)
+		}
+
+		// Add the form files
+		for k, v := range r.MultipartForm.File {
+			params.Files[k] = v
 		}
 	}
 
@@ -272,16 +278,6 @@ func (p *RequestParams) GetFloats(key string) []float64 {
 func contains(list []int64, item int64) bool {
 	for _, b := range list {
 		if b == item {
-			return true
-		}
-	}
-	return false
-}
-
-// containsString returns true if the string is in this list
-func containsString(allowed []string, p string) bool {
-	for _, v := range allowed {
-		if p == v {
 			return true
 		}
 	}

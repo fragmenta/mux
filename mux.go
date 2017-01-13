@@ -84,6 +84,10 @@ func (m *Mux) RouteRequest(w http.ResponseWriter, r *http.Request) {
 
 // Match finds the route (if any) which matches this request
 func (m *Mux) Match(r *http.Request) Route {
+	// Handle nil request
+	if r == nil {
+		return nil
+	}
 
 	// Routes are checked in order against the request path
 	for _, route := range m.routes {
@@ -96,6 +100,7 @@ func (m *Mux) Match(r *http.Request) Route {
 					return route
 				}
 			}
+
 		}
 	}
 

@@ -44,14 +44,12 @@ func (r *NaiveRoute) Handler() HandlerFunc {
 
 // Setup sets up the route from a pattern
 func (r *NaiveRoute) Setup(p string, h HandlerFunc) error {
-	// Set the defaults
 	// Allow GET and HEAD by default
 	r.methods = []string{http.MethodGet, http.MethodHead}
 	r.handler = h
 	r.pattern = p
 
 	// Parse regexp once on startup
-	//return r.compileRegexp()
 	return r.compileRegexp()
 }
 
@@ -63,13 +61,12 @@ func (r *NaiveRoute) Handle(w http.ResponseWriter, req *http.Request) error {
 // MatchMethod returns true if our list of methods contains method
 func (r *NaiveRoute) MatchMethod(method string) bool {
 
-	// We treat "" as GET by default
-	if method == "" {
-		method = http.MethodGet
-	}
-
 	for _, v := range r.methods {
 		if v == method {
+			return true
+		}
+		// Treat "" as GET
+		if method == "" && v == http.MethodGet {
 			return true
 		}
 	}
