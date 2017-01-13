@@ -90,7 +90,6 @@ func (r *NaiveRoute) Match(path string) bool {
 
 	// If no regexp, check for exact string match against pattern
 	return (r.pattern == path)
-
 }
 
 // Get sets the method exclusively to GET
@@ -238,18 +237,18 @@ func (r *NaiveRoute) findBraces(s string) ([]int, error) {
 // PrefixRoute uses a static prefix to reject route matches quickly.
 type PrefixRoute struct {
 	NaiveRoute
-	len int
+	index int
 }
 
 // Setup sets up the pattern prefix for the Prefix route.
 func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 
 	// Record the prefix len up to the first regexp (if any)
-	r.len = strings.Index(p, "{")
+	r.index = strings.Index(p, "{")
 
 	// If no regexp, we have a static path
-	if r.len < 0 {
-		r.len = 0
+	if r.index < 0 {
+		r.index = 0
 	}
 
 	// Finish setup with NaiveRoute
@@ -261,7 +260,7 @@ func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 func (r *PrefixRoute) MatchMaybe(path string) bool {
 
 	// If no prefix we are static, so can safely match absolutely
-	if r.len == 0 {
+	if r.index == 0 {
 		return path == r.pattern
 	}
 
@@ -269,10 +268,10 @@ func (r *PrefixRoute) MatchMaybe(path string) bool {
 	// HasPrefix checks on length first so it is fast.
 	// If this returns yes, we are really saying maybe
 	// and require a further check with Match().
-	return strings.HasPrefix(path, r.pattern[:r.len])
+	return strings.HasPrefix(path, r.pattern[:r.index])
 }
 
 // String returns the route formatted as a string.
 func (r *PrefixRoute) String() string {
-	return fmt.Sprintf("%s %s (prefix:%s)", r.methods[0], r.pattern, r.pattern[:r.len])
+	return fmt.Sprintf("%s %s (prefix:%s)", r.methods[0], r.pattern, r.pattern[:r.index])
 }
