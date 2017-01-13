@@ -214,7 +214,7 @@ func (r *NaiveRoute) compileRegexp() (err error) {
 
 // findBraces returns the first level curly brace indices from a string.
 // It returns an error in case of unbalanced braces.
-// This method based on gorilla mux
+// This method of parsing regexp is based on gorilla mux.
 func (r *NaiveRoute) findBraces(s string) ([]int, error) {
 	var level, idx int
 	var idxs []int
@@ -238,25 +238,22 @@ func (r *NaiveRoute) findBraces(s string) ([]int, error) {
 	return idxs, nil
 }
 
-// PrefixRoute uses a static prefix to reject route matches quickly
+// PrefixRoute uses a static prefix to reject route matches quickly.
 type PrefixRoute struct {
 	NaiveRoute
-	prefix string
+	len int
 }
 
-// Setup sets up the pattern prefix for the Prefix route
+// Setup sets up the pattern prefix for the Prefix route.
 func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 
-	// Take the prefix up to the first regexp (if any)
-	i := strings.Index(p, "{")
+	// Record the prefix len up to the first regexp (if any)
+	r.len = strings.Index(p, "{")
 
 	// If no regexp, we have a static path
-	if i < 0 {
-		i = 0
+	if r.len < 0 {
+		r.len = 0
 	}
-
-	// Record the prefix up to this index
-	r.prefix = p[:i]
 
 	// Finish setup with NaiveRoute
 	return r.NaiveRoute.Setup(p, h)
@@ -267,18 +264,18 @@ func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 func (r *PrefixRoute) MatchMaybe(path string) bool {
 
 	// If no prefix we are static, so can safely match absolutely
-	if r.prefix == "" {
+	if r.len == 0 {
 		return path == r.pattern
 	}
 
-	// Reject with no on string comparison of static prefix
-	// HasPrefix checks on length first so it is fast
-	// if this returns yes, we are really saying maybe
-	// and require a further check with Match()
-	return strings.HasPrefix(path, r.prefix)
+	// Reject with a string comparison of static prefix with path
+	// HasPrefix checks on length first so it is fast.
+	// If this returns yes, we are really saying maybe
+	// and require a further check with Match().
+	return strings.HasPrefix(path, r.pattern[:r.len])
 }
 
-// String returns the route formatted as a string
+// String returns the route formatted as a string.
 func (r *PrefixRoute) String() string {
-	return fmt.Sprintf("%s %s (%s)", r.methods[0], r.pattern, r.prefix)
+	return fmt.Sprintf("%s %s (prefix:%s)", r.methods[0], r.pattern, r.pattern[:r.len])
 }

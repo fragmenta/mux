@@ -87,8 +87,35 @@ func TestGetRoutes(t *testing.T) {
 
 }
 
+// TestNaiveRoute tests creating a basic route
+func TestNaiveRoute(t *testing.T) {
+
+	r, err := NewNaiveRoute("/", handler)
+	if err != nil {
+		t.Error("route: error creating route")
+	}
+
+	// Test defaults
+	if !r.MatchMethod(http.MethodHead) {
+		t.Errorf("route: does not match method " + http.MethodHead)
+	}
+	if !r.MatchMethod(http.MethodGet) {
+		t.Errorf("route: does not match method " + http.MethodHead)
+	}
+
+	if !r.MatchMaybe("/") {
+		t.Errorf("route: does not match method " + http.MethodGet)
+	}
+
+	if r.(*NaiveRoute).Pattern() != "/" {
+		t.Errorf("route: pattern incorrect")
+	}
+
+}
+
 // TestWrongMethods tests creating a route
 func TestMethods(t *testing.T) {
+
 	r, err := NewRoute("/", handler)
 	if err != nil {
 		t.Error("route: error creating route")
