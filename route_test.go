@@ -3,7 +3,6 @@ package mux
 import (
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 )
 
@@ -153,8 +152,8 @@ func TestMethods(t *testing.T) {
 		t.Errorf("route: does not match method " + http.MethodHead)
 	}
 
-	if !strings.Contains(r.String(), http.MethodDelete) {
-		t.Errorf("route: does not match methods %s" + r.String())
+	if r.(*NaiveRoute).methods[0] != http.MethodDelete {
+		t.Errorf("route: does not match methods %v", r)
 	}
 
 }
@@ -266,7 +265,7 @@ func TestRouteRegexpParsing(t *testing.T) {
 		} else {
 			// else we should have no good match, check no params
 			if len(urlParams) > 0 {
-				t.Errorf("route: %s failed to reject invalid params :%v", r.String(), urlParams)
+				t.Errorf("route: %v failed to reject invalid params :%v", r, urlParams)
 			}
 		}
 

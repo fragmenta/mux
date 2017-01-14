@@ -2,6 +2,7 @@ package mux
 
 import (
 	"net/http"
+	"sync"
 )
 
 // HandlerFunc defines a std net/http HandlerFunc, but which returns an error.
@@ -15,13 +16,18 @@ type Middleware func(http.HandlerFunc) http.HandlerFunc
 
 // Route defines the interface routes are expected to conform to.
 type Route interface {
+	// Match against URL
 	MatchMethod(string) bool
 	MatchMaybe(string) bool
 	Match(string) bool
-	String() string
+
+	// Handler returns the handler to execute
 	Handler() HandlerFunc
+
+	// Parse the URL for params according to pattern
 	Parse(string) map[string]string
 
+	// Set accepted methods
 	Get() Route
 	Post() Route
 	Put() Route
@@ -29,12 +35,19 @@ type Route interface {
 	Methods(...string) Route
 }
 
+// MaxCacheEntries defines the maximum number of entries in the request->route cache
+// 0 means caching is turned off
+var MaxCacheEntries = 500
+
 // Mux handles http requests by selecting a handler
 // and passing the request to it.
 // Routes are evaluated in the order they were added.
 // Before the request reaches the handler
 // it is passed through the middleware chain.
 type Mux struct {
+	cache   map[string]Route
+	cacheMu sync.RWMutex
+
 	routes       []Route
 	handlerFuncs []Middleware
 
@@ -48,6 +61,7 @@ func New() *Mux {
 	m := &Mux{
 		FileHandler:  fileHandler,
 		ErrorHandler: errHandler,
+		cache:        make(map[string]Route, MaxCacheEntries),
 	}
 
 	return m
@@ -55,6 +69,12 @@ func New() *Mux {
 
 // ServeHTTP implements net/http.Handler.
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Avoid iteration if possible
+	if len(m.handlerFuncs) == 0 {
+		m.RouteRequest(w, r)
+		return
+	}
+	// FIXME can we fix? This is allocating on every request
 	h := m.RouteRequest
 	for _, mh := range m.handlerFuncs {
 		h = mh(h)
@@ -89,6 +109,16 @@ func (m *Mux) Match(r *http.Request) Route {
 		return nil
 	}
 
+	// Check if we have a cached result for this same path
+	if MaxCacheEntries > 0 {
+		m.cacheMu.RLock()
+		route, ok := m.cache[r.URL.Path]
+		m.cacheMu.RUnlock()
+		if ok {
+			return route
+		}
+	}
+
 	// Routes are checked in order against the request path
 	for _, route := range m.routes {
 		// Test with probabalistic match
@@ -97,6 +127,7 @@ func (m *Mux) Match(r *http.Request) Route {
 			if route.MatchMethod(r.Method) {
 				// Test exact match (may be expensive regexp)
 				if route.Match(r.URL.Path) {
+					m.cacheRoute(r.URL.Path, route)
 					return route
 				}
 			}
@@ -107,11 +138,35 @@ func (m *Mux) Match(r *http.Request) Route {
 	return nil
 }
 
+// cacheRoute saves the route with url as key
+func (m *Mux) cacheRoute(u string, r Route) {
+	if MaxCacheEntries == 0 {
+		return // MaxCacheEntries is 0 so cache is off
+	}
+	m.cacheMu.Lock()
+	// If cache is too big, evict
+	if len(m.cache) > MaxCacheEntries {
+		m.cache = make(map[string]Route, MaxCacheEntries)
+	}
+	// Fill the cache for this url -> route pair
+	m.cache[u] = r
+	m.cacheMu.Unlock()
+}
+
 // AddMiddleware adds a middleware function, this should be done before
 // starting the server as it remakes our chain of middleware.
+// This prepends to our chain of middleware
 func (m *Mux) AddMiddleware(middleware Middleware) {
-	// Prepend to our array of middleware
 	m.handlerFuncs = append([]Middleware{middleware}, m.handlerFuncs...)
+}
+
+// AddHandler adds a route for this pattern/hanlder
+// with a stdlib http.HandlerFunc which does not return an error.
+func (m *Mux) AddHandler(pattern string, handler http.HandlerFunc) Route {
+	return m.Add(pattern, func(w http.ResponseWriter, r *http.Request) error {
+		handler(w, r)
+		return nil
+	})
 }
 
 // Add adds a route for this request with the default methods (GET/HEAD)
@@ -125,4 +180,14 @@ func (m *Mux) Add(pattern string, handler HandlerFunc) Route {
 
 	m.routes = append(m.routes, route)
 	return route
+}
+
+// Get adds a route for this pattern/hanlder with the default methods (GET/HEAD)
+func (m *Mux) Get(pattern string, handler HandlerFunc) Route {
+	return m.Add(pattern, handler)
+}
+
+// Post adds a route for this pattern/hanlder with method http.PostMethod
+func (m *Mux) Post(pattern string, handler HandlerFunc) Route {
+	return m.Add(pattern, handler).Post()
 }

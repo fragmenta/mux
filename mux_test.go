@@ -159,6 +159,7 @@ type route struct {
 	p string
 }
 
+// Taken from httprouter tests for comparison
 var staticRoutes = []route{
 	{"GET", "/"},
 	{"GET", "/cmd.html"},
@@ -319,7 +320,13 @@ var staticRoutes = []route{
 	{"GET", "/progs/update.bash"},
 }
 
-// go test -test.bench BenchmarkRoutes -benchmem
+// BenchmarkRoutes tests routes against a set of benchmark static routes
+// taken from the httprouter router comparison.
+/*
+go test -bench=. -timeout=180m -benchtime 10s  -benchmem
+BenchmarkRoutes-4        	  200000	     69200 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRoutesParse-4   	 2000000	      8593 ns/op	       0 B/op	       0 allocs/op
+*/
 func BenchmarkRoutes(b *testing.B) {
 	m := New()
 
@@ -399,6 +406,9 @@ var parseAPI = []route{
 func BenchmarkRoutesParse(b *testing.B) {
 	m := New()
 
+	// disable cache for routes parse so that we don't just test cache
+	MaxCacheEntries = 0
+
 	// Set up a parallel set of paths for these routes
 	var requests []*http.Request
 	// Add routes - sending everything to the same test handler
@@ -425,4 +435,29 @@ func BenchmarkRoutesParse(b *testing.B) {
 
 }
 
-// Benchmark parsing a route
+// go test -test.bench BenchmarkRoutes -benchmem
+// Benchmark hitting / repeatedly with cache on
+// should get very fast response times
+func BenchmarkRootCached(b *testing.B) {
+	m := New()
+	MaxCacheEntries = 500
+
+	// Set up a parallel set of paths for these routes
+	var requests []*http.Request
+	req := httptest.NewRequest("GET", "/", nil)
+	requests = append(requests, req)
+	m.Add("/", handler).Methods("GET")
+
+	// Now benchmark matching requests
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, r := range requests {
+			r := m.Match(r)
+			if r == nil {
+				b.Errorf("error parsing route:%v", r)
+			}
+		}
+	}
+
+}
