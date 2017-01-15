@@ -110,15 +110,16 @@ Performance is adequate:
 
 ```
 
-BenchmarkStatic/stdlib_mux-4                2000       1869980 ns/op       20958 B/op        537 allocs/op
-BenchmarkStatic/gorilla_mux-4               2000       1788148 ns/op      115648 B/op       1578 allocs/op
-BenchmarkStatic/fragmenta_mux-4           200000         10866 ns/op           0 B/op          0 allocs/op
-BenchmarkStatic/httprouter_mux-4          200000         15893 ns/op           0 B/op          0 allocs/op
+BenchmarkStatic/stdlib_mux-4         	    1000	   1946545 ns/op	   20619 B/op	     537 allocs/op
+BenchmarkStatic/gorilla_mux-4        	    1000	   1846382 ns/op	  115648 B/op	    1578 allocs/op
+BenchmarkStatic/fragmenta_mux-4      	  100000	     13969 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStatic/httprouter_mux-4     	  100000	     16240 ns/op	       0 B/op	       0 allocs/op
 
-BenchmarkGithub/stdlib_mux-4                1000       4230743 ns/op       26419 B/op        829 allocs/op
-BenchmarkGithub/gorilla_mux-4                300       9120427 ns/op      246784 B/op       2590 allocs/op
-BenchmarkGithub/fragmenta_mux-4           100000         33328 ns/op         361 B/op          6 allocs/op
-BenchmarkGithub/httprouter_mux-4           30000        100419 ns/op       24970 B/op        296 allocs/op
+BenchmarkGithubFuzz/stdlib_mux-4               	     300	   4592686 ns/op	   35767 B/op	     902 allocs/op
+BenchmarkGithubFuzz/gorilla_mux-4              	     100	  12931693 ns/op	  246784 B/op	    2590 allocs/op
+BenchmarkGithubFuzz/fragmenta_mux-4            	    5000	    324911 ns/op	    7617 B/op	     136 allocs/op
+BenchmarkGithubFuzz/httprouter_mux-4           	   10000	    101702 ns/op	   23791 B/op	     296 allocs/op
+
 
 ```
 
