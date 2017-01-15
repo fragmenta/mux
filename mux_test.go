@@ -1,6 +1,8 @@
 package mux
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -435,27 +437,102 @@ func BenchmarkRoutesParse(b *testing.B) {
 
 }
 
+type testCache struct {
+	method  string
+	pattern string
+	handler HandlerFunc
+}
+
+func listHandler(w http.ResponseWriter, r *http.Request) error       { return errors.New("list") }
+func updateShowHandler(w http.ResponseWriter, r *http.Request) error { return errors.New("updateshow") }
+func updateHandler(w http.ResponseWriter, r *http.Request) error     { return errors.New("updatepost") }
+func destroyHandler(w http.ResponseWriter, r *http.Request) error    { return errors.New("destroypost") }
+func showHandler(w http.ResponseWriter, r *http.Request) error       { return errors.New("show") }
+
+var testStaticCacheHandlers = []testCache{
+	{"GET", "/", listHandler},
+	{"GET", "/my/longer/static/path", showHandler},
+	{"GET", "/my/longer", updateHandler},
+}
+
 // go test -test.bench BenchmarkRoutes -benchmem
 // Benchmark hitting / repeatedly with cache on
 // should get very fast response times
-func BenchmarkRootCached(b *testing.B) {
+func BenchmarkStaticCached(b *testing.B) {
 	m := New()
 	MaxCacheEntries = 500
 
-	// Set up a parallel set of paths for these routes
 	var requests []*http.Request
-	req := httptest.NewRequest("GET", "/", nil)
-	requests = append(requests, req)
-	m.Add("/", handler).Methods("GET")
+
+	// Set up the handlers
+	for _, tch := range testStaticCacheHandlers {
+		m.Get(tch.pattern, tch.handler)
+		req := httptest.NewRequest(tch.method, tch.pattern, nil)
+		requests = append(requests, req)
+	}
 
 	// Now benchmark matching requests
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		for _, r := range requests {
-			r := m.Match(r)
-			if r == nil {
-				b.Errorf("error parsing route:%v", r)
+			route := m.Match(r)
+			if route == nil {
+				b.Errorf("error matching request:%v %v", r, m)
+			}
+		}
+	}
+
+}
+
+var testCacheHandlers = []testCache{
+	{"GET", "/users", listHandler},
+	{"GET", "/users/{id:\\d+}/update", updateShowHandler},
+	//	{"POST", "/users/{id:\\d+}/update", updateHandler},
+	{"POST", "/users/{id:\\d+}/destroy", destroyHandler},
+	{"GET", "/users/{id:\\d+}", showHandler},
+}
+
+// TestCache tests the cache does not distort results.
+func TestCache(t *testing.T) {
+	m := New()
+	MaxCacheEntries = 500
+
+	// Set up the handlers
+	for _, tch := range testCacheHandlers {
+		switch tch.method {
+		case "GET":
+			m.Get(tch.pattern, tch.handler)
+		case "POST":
+			m.Post(tch.pattern, tch.handler)
+		}
+	}
+
+	// Check the response is correct at first (no cache)
+	var responses []Route
+	for _, tch := range testCacheHandlers {
+		path := strings.Replace(tch.pattern, "{id:\\d+}", "33", -1)
+		req := httptest.NewRequest(tch.method, path, nil)
+		w := httptest.NewRecorder()
+		route := m.Match(req)
+		responses = append(responses, route)
+		// Check errors returned by handlers registered on t
+		if route.Handler()(w, req).Error() != tch.handler(w, req).Error() {
+			t.Errorf("Failed to match route handler:%s->%s", route.Handler()(w, req).Error(), tch.handler(w, req).Error())
+		}
+	}
+
+	// Check subsequent 100 runs (with cache) give the same result
+	for i := 1; i < 100; i++ {
+		for _, tch := range testCacheHandlers {
+			path := strings.Replace(tch.pattern, "{id:\\d+}", fmt.Sprintf("%d", i), -1)
+			req := httptest.NewRequest(tch.method, path, nil)
+			w := httptest.NewRecorder()
+			route := m.Match(req)
+			responses = append(responses, route)
+			// Check errors returned by handlers registered on t
+			if route.Handler()(w, req).Error() != tch.handler(w, req).Error() {
+				t.Errorf("Failed to match route handler:%s->%s", route.Handler()(w, req).Error(), tch.handler(w, req).Error())
 			}
 		}
 	}

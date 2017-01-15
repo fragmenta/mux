@@ -112,9 +112,11 @@ func (m *Mux) Match(r *http.Request) Route {
 	// Check if we have a cached result for this same path
 	if MaxCacheEntries > 0 {
 		m.cacheMu.RLock()
-		route, ok := m.cache[r.URL.Path]
+		route, ok := m.cache[requestCacheKey(r)]
 		m.cacheMu.RUnlock()
-		if ok {
+		// This check is necessary as we only use the request url for the cache key
+		// this means we get a cache miss on some identical routes with diff methods.
+		if ok && route.MatchMethod(r.Method) {
 			return route
 		}
 	}
@@ -127,7 +129,7 @@ func (m *Mux) Match(r *http.Request) Route {
 			if route.MatchMethod(r.Method) {
 				// Test exact match (may be expensive regexp)
 				if route.Match(r.URL.Path) {
-					m.cacheRoute(r.URL.Path, route)
+					m.cacheRoute(requestCacheKey(r), route)
 					return route
 				}
 			}
@@ -138,8 +140,15 @@ func (m *Mux) Match(r *http.Request) Route {
 	return nil
 }
 
-// cacheRoute saves the route with url as key
-func (m *Mux) cacheRoute(u string, r Route) {
+// Return a key suitable for storing this request in our cache.
+// NB: To avoid allocations we do not include every permutation in the cache
+// so routes returned must be checked against request.
+func requestCacheKey(r *http.Request) string {
+	return r.URL.Path
+}
+
+// cacheRoute saves the route with key provided
+func (m *Mux) cacheRoute(key string, r Route) {
 	if MaxCacheEntries == 0 {
 		return // MaxCacheEntries is 0 so cache is off
 	}
@@ -148,8 +157,8 @@ func (m *Mux) cacheRoute(u string, r Route) {
 	if len(m.cache) > MaxCacheEntries {
 		m.cache = make(map[string]Route, MaxCacheEntries)
 	}
-	// Fill the cache for this url -> route pair
-	m.cache[u] = r
+	// Fill the cache for this key -> route pair
+	m.cache[key] = r
 	m.cacheMu.Unlock()
 }
 
@@ -160,8 +169,8 @@ func (m *Mux) AddMiddleware(middleware Middleware) {
 	m.handlerFuncs = append([]Middleware{middleware}, m.handlerFuncs...)
 }
 
-// AddHandler adds a route for this pattern/hanlder
-// with a stdlib http.HandlerFunc which does not return an error.
+// AddHandler adds a route for this pattern using a
+// stdlib http.HandlerFunc which does not return an error.
 func (m *Mux) AddHandler(pattern string, handler http.HandlerFunc) Route {
 	return m.Add(pattern, func(w http.ResponseWriter, r *http.Request) error {
 		handler(w, r)
