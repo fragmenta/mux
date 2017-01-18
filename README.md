@@ -78,12 +78,7 @@ Parsing of params is delayed until you require them in your handler - no parsing
 
 ```go
 
-// Parse just url params for a simple resource id from url 
-id := mux.ParamsID(request)
-users, err := users.Find(id)
-...
-
-// OR for more complex handlers parse all params 
+// Parse  params (any url, query and form params)
 params,err := mux.Params(request)
 if err != nil {
   return err

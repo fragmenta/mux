@@ -19,18 +19,14 @@ func TestParams(t *testing.T) {
 
 	// Test basic request
 	r := httptest.NewRequest(http.MethodGet, "/users/1/update?foo=bar", nil)
-	id := ParamsID(r)
-	if id != 1 {
-		t.Errorf("params: error reading param")
-	}
 
 	// Test nil request
-	id = ParamsID(nil)
-	if id != 0 {
-		t.Errorf("params: error reading param")
+	params, err := Params(nil)
+	if err == nil {
+		t.Errorf("params: error reading nil request")
 	}
 
-	params, err := Params(r)
+	params, err = Params(r)
 	if err != nil {
 		t.Errorf("params: error parsing params")
 	}

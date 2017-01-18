@@ -27,33 +27,6 @@ func SetDefault(m *Mux) {
 	}
 }
 
-// ParamsID parses the url params and returns a resource id from them
-// for use in basic crud actions on resources with numeric keys
-// If you need any other params, use mux.Params() instead.
-func ParamsID(r *http.Request) int64 {
-
-	// Find the route for request
-	route := mux.Match(r)
-	if route == nil {
-		return 0
-	}
-
-	// Parse only the request path params where we expect a numeric id
-	urlParams := route.Parse(r.URL.Path)
-	v := urlParams["id"]
-	if v == "" {
-		return 0
-	}
-
-	id, err := strconv.ParseInt(v, 10, 64)
-	if err != nil {
-		return 0
-	}
-
-	// return the id
-	return id
-}
-
 // Params returns a new set of params parsed from the request.
 func Params(r *http.Request) (*RequestParams, error) {
 	return ParamsWithMux(mux, r)
