@@ -2,6 +2,7 @@ package mux
 
 import (
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -9,23 +10,6 @@ import (
 	"strings"
 	"time"
 )
-
-// mux is a private variable which is set only once on startup,
-// an alternative approach would be to store this on the server as a global.
-var mux *Mux
-
-// SetDefault sets the default mux on the package for use in parsing params
-// we could instead decorate each request with a reference to the Route
-// but this means extra allocations for each request,
-// when almost all apps require only one mux.
-func SetDefault(m *Mux) {
-	if mux == nil {
-		mux = m
-
-		// Set our router to handle all routes
-		http.Handle("/", mux)
-	}
-}
 
 // Params returns a new set of params parsed from the request.
 func Params(r *http.Request) (*RequestParams, error) {
@@ -121,6 +105,16 @@ func (p *RequestParams) Set(key string, values []string) {
 	p.Values[key] = values
 }
 
+// SetString sets this key to this single string value, removing any other entries.
+func (p *RequestParams) SetString(key string, v string) {
+	p.Set(key, []string{v})
+}
+
+// SetInt sets this key to this single string value, removing any other entries.
+func (p *RequestParams) SetInt(key string, v int64) {
+	p.Set(key, []string{fmt.Sprintf("%d", v)})
+}
+
 // Add appends these values to this key, without removing any other entries.
 func (p *RequestParams) Add(key string, values []string) {
 	p.Values[key] = append(p.Values[key], values...)
@@ -140,6 +134,13 @@ func (p *RequestParams) Get(key string) string {
 	return v[0]
 }
 
+// GetDate returns the first value associated with a given key as a time,
+//  using the given time format.
+func (p *RequestParams) GetDate(key string, format string) (time.Time, error) {
+	v := p.Get(key)
+	return time.Parse(format, v)
+}
+
 // GetInt returns the first value associated with the given key as an integer.
 // If there is no value or a parse error, it returns 0
 // If the string contains non-numeric characters, it is truncated from
@@ -154,13 +155,6 @@ func (p *RequestParams) GetInt(key string) int64 {
 		return 0
 	}
 	return i
-}
-
-// GetDate returns the first value associated with a given key as a time,
-//  using the given time format.
-func (p *RequestParams) GetDate(key string, format string) (time.Time, error) {
-	v := p.Get(key)
-	return time.Parse(format, v)
 }
 
 // GetInts returns all values associated with the key as an array of integers.
