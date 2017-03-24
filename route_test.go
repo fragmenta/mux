@@ -22,8 +22,10 @@ type testMatch struct {
 	id      string
 }
 
-// Note matches allow arbitrary endings unless excluded by regexp - this lets us have slugs for seo easily
+// Note matches allow arbitrary endings unless excluded by regexp
+// this lets us have slugs for seo easily.
 var getTests = []testMatch{
+	{`GET`, `/`, true, `/`, ``},
 	{`GET`, `/elephants`, true, `/elephants`, ``},
 	{`GET`, `/elephants/foo`, false, `/elephants`, ``}, // fail due to different path
 	{`GET`, `/dod/1`, false, `/dod/{\d+}`, ``},         // fail due to malformed regexp
@@ -41,6 +43,7 @@ var getTests = []testMatch{
 	{`GET`, `/users/1`, true, `/users/{id:\d+}`, ``},
 	{`GET`, `/users/1-slug-for-seo`, true, `/users/{id:\d+}`, ``},
 	{`GET`, `/users/2342345`, true, `/users/{id:\d+}`, ``},
+	{`GET`, `/test-wildcard`, true, `/{path:.*}`, ``},
 }
 
 // These tests should be run for EVERY type of route, work out how best to do this.
