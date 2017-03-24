@@ -246,11 +246,6 @@ func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 	// Record the prefix len up to the first regexp (if any)
 	r.index = strings.Index(p, "{")
 
-	// If no regexp, we have a static path
-	if r.index < 0 {
-		r.index = 0
-	}
-
 	// Finish setup with NaiveRoute
 	return r.NaiveRoute.Setup(p, h)
 }
@@ -260,7 +255,7 @@ func (r *PrefixRoute) Setup(p string, h HandlerFunc) error {
 func (r *PrefixRoute) MatchMaybe(path string) bool {
 
 	// If no prefix we are static, so can safely match absolutely
-	if r.index == 0 {
+	if r.index < 0 {
 		return path == r.pattern
 	}
 
