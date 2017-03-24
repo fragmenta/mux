@@ -39,6 +39,22 @@ type Route interface {
 // 0 means caching is turned off
 var MaxCacheEntries = 500
 
+// mux is a private variable which is set only once on startup.
+var mux *Mux
+
+// SetDefault sets the default mux on the package for use in parsing params
+// we could instead decorate each request with a reference to the Route
+// but this means extra allocations for each request,
+// when almost all apps require only one mux.
+func SetDefault(m *Mux) {
+	if mux == nil {
+		mux = m
+
+		// Set our router to handle all routes
+		http.Handle("/", mux)
+	}
+}
+
 // Mux handles http requests by selecting a handler
 // and passing the request to it.
 // Routes are evaluated in the order they were added.
@@ -74,7 +90,6 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.RouteRequest(w, r)
 		return
 	}
-	// FIXME can we fix? This is allocating on every request
 	h := m.RouteRequest
 	for _, mh := range m.handlerFuncs {
 		h = mh(h)
