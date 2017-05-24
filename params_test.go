@@ -53,6 +53,17 @@ func TestParams(t *testing.T) {
 		t.Errorf("params: error getting map")
 	}
 
+	// Test a request for id with non-numeric slug
+	m.Add("/users/{id:\\d+}", handler)
+	r = httptest.NewRequest(http.MethodGet, "/users/991-slug-here", nil)
+	params, err = Params(r)
+	if err != nil {
+		t.Errorf("params: error parsing params")
+	}
+	if params.GetInt("id") != 991 {
+		t.Errorf("params: error parsing int id wanted:%d got:%d", 991, params.GetInt("id"))
+	}
+
 	// Test a POST Request with form params
 	m.Add("/users/create", handler).Post()
 
