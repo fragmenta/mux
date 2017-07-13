@@ -2,6 +2,7 @@ package mux
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -70,11 +71,13 @@ type Mux struct {
 	// See httptrace for best way to instrument
 	ErrorHandler ErrorHandlerFunc
 	FileHandler  HandlerFunc
+	RedirectWWW  bool
 }
 
 // New returns a new mux
 func New() *Mux {
 	m := &Mux{
+		RedirectWWW:  false,
 		FileHandler:  fileHandler,
 		ErrorHandler: errHandler,
 		cache:        make(map[string]Route, MaxCacheEntries),
@@ -85,6 +88,12 @@ func New() *Mux {
 
 // ServeHTTP implements net/http.Handler.
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// If redirect www is set, test host
+	if m.RedirectWWW && strings.HasPrefix(r.Host, "www.") {
+		redirect := strings.Replace("https://"+r.Host+r.URL.String(), "www.", "", 1)
+		http.Redirect(w, r, redirect, http.StatusMovedPermanently)
+	}
+
 	// Avoid iteration if possible
 	if len(m.handlerFuncs) == 0 {
 		m.RouteRequest(w, r)
