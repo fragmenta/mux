@@ -10,9 +10,6 @@ import (
 // ContentSecurityPolicy defaults to a strict policy disallowing iframes and scripts from any other origin save self (and Google Analytics for scripts)
 var ContentSecurityPolicy = "frame-ancestors 'self'; style-src 'self'; script-src 'self' www.google-analytics.com"
 
-// AddXHeaders determines whether the older headers X-XSS-Protection and X-Content-Type-Options are set - it defaults to true at present
-var AddXHeaders = true
-
 // Middleware adds some headers suitable for secure sites
 func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
@@ -29,13 +26,11 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 		// Set ReferrerPolicy explicitly to send only the domain, not the path
 		w.Header().Set("Referrer-Policy", "strict-origin")
 
-		if AddXHeaders {
-			// Ask browsers to block xss by default
-			w.Header().Set("X-XSS-Protection", "1; mode=block")
+		// Ask browsers to block xss by default
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
 
-			// Don't allow browser sniffing for content types
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-		}
+		// Don't allow browser sniffing for content types
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// Call the handler
 		h(w, r)
