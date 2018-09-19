@@ -12,8 +12,11 @@ import (
 // TargetResponseTime sets the threshold for colorisation of response times
 var TargetResponseTime = 50 * time.Millisecond
 
-// Middleware logs after each request to record the method, the url, the status code and the response time
+// Middleware logs after each request to record to log.Printf
+// the method, the url, the status code and the response time
 // e.g. GET / -> status 200 in 31.932146ms
+// With coloration to indicate status and response time
+// If ValueLoggers are set the values are also sent to log.Values
 func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -43,14 +46,27 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
 		// Log the values to any value loggers (for export to monitoring services)
 		values := map[string]interface{}{
-			"method": r.Method,
-			"url":    r.URL.Path,
-			"code":   code,
-			"time":   duration,
+			log.SeriesName: "requests",
+			"method":       r.Method,
+			"url":          r.URL.Path,
+			"code":         code,
+			"bot":          isBot(r),
+			"duration":     duration.Nanoseconds(), // Store duration in nanoseconds in the db
 		}
 		log.Values(values)
 	}
 
+}
+
+// isBot returns true if it thinks this request came from a bot
+// At present this is just a simplistic look at the user agent
+// for keywords. It must be fast so as not to impact performance.
+func isBot(r *http.Request) bool {
+	ua := strings.ToLower(r.UserAgent())
+	if strings.Contains(ua, "bot") || strings.Contains(ua, "crawl") || strings.Contains(ua, "spider") || strings.Contains(ua, "fetch") {
+		return true
+	}
+	return false
 }
 
 // codeResponseWriter defines a responseWriter which stores the status code
