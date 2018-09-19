@@ -6,13 +6,26 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 )
 
-func TestParams(t *testing.T) {
-	m := New()
+// TestSetup sets up a mux for testing
+func TestMain(m *testing.M) {
+	testSetup()
+	c := m.Run()
+	os.Exit(c)
+}
+
+var m *Mux
+
+func testSetup() {
+	m = New()
 	SetDefault(m)
+}
+
+func TestGetParams(t *testing.T) {
 
 	// Test a simple route
 	m.Add("/users/{id:\\d+}/update", handler)
@@ -34,8 +47,13 @@ func TestParams(t *testing.T) {
 		t.Errorf("params: error parsing zero params")
 	}
 	if params.Get("id") != "1" {
-		t.Errorf("params: error parsing id")
+		t.Errorf("params: Get error")
 	}
+
+	if params.GetStrings("foo")[0] != "bar" {
+		t.Errorf("params: GetStrings error")
+	}
+
 	if params.GetInt("id") != 1 {
 		t.Errorf("params: error parsing int id")
 	}
@@ -64,6 +82,10 @@ func TestParams(t *testing.T) {
 		t.Errorf("params: error parsing int id wanted:%d got:%d", 991, params.GetInt("id"))
 	}
 
+}
+
+func TestPost(t *testing.T) {
+
 	// Test a POST Request with form params
 	m.Add("/users/create", handler).Post()
 
@@ -73,9 +95,10 @@ func TestParams(t *testing.T) {
 	form.Add("unit_id", "3")
 	form.Add("unit_id", "4")
 	body := strings.NewReader(form.Encode())
-	r = httptest.NewRequest("POST", "/users/create?test=asdf&1=é%30&debug=bar&float=4.0&float=2.0&date=2017-04-04", body)
+	r := httptest.NewRequest("POST", "/users/create?test=asdf&1=é%30&debug=bar&float=4.0&float=2.0&date=2017-04-04", body)
 	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	params, err = Params(r)
+
+	params, err := Params(r)
 	if err != nil {
 		t.Errorf("params: error parsing form params :%s", err)
 	}
@@ -111,6 +134,12 @@ func TestParams(t *testing.T) {
 	if err != nil || d.Year() != 2017 || d.Month() != 4 {
 		t.Errorf("params: error parsing date")
 	}
+}
+
+func TestPostMultipart(t *testing.T) {
+
+	// Test a POST Request with form params
+	m.Add("/users/create", handler).Post()
 
 	// Test a multipart form decodes seamlessly into Files
 
@@ -133,10 +162,10 @@ func TestParams(t *testing.T) {
 	}
 	w.Close()
 
-	r = httptest.NewRequest("POST", "/users/create?id=9", &formData)
+	r := httptest.NewRequest("POST", "/users/create?id=9", &formData)
 	r.Header.Set("Content-Type", w.FormDataContentType())
 
-	params, err = Params(r)
+	params, err := Params(r)
 	if err != nil {
 		t.Fatalf("params: error parsing form params :%s", err)
 	}
@@ -162,5 +191,4 @@ func TestParams(t *testing.T) {
 		t.Errorf("params: error parsing file from files:%v", params.Files)
 	}
 	// TODO: file is there, verify reading file contents compare with string above
-
 }
