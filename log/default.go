@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Default defines a default logger which allows writing in color
+// Default defines a default logger to stdout
 type Default struct {
 
 	// PrefixTimeFormat is used to prefix any log lines emitted with a time.
