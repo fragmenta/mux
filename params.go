@@ -125,6 +125,12 @@ func (p *RequestParams) Delete(key string) {
 	delete(p.Values, key)
 }
 
+// Exists returns true if this key exists in Values
+func (p *RequestParams) Exists(key string) bool {
+	_, ok := p.Values[key]
+	return ok
+}
+
 // Get returns the first value for this key or a blank string if no entry.
 func (p *RequestParams) Get(key string) string {
 	v, ok := p.Values[key]
@@ -132,6 +138,12 @@ func (p *RequestParams) Get(key string) string {
 		return ""
 	}
 	return v[0]
+}
+
+// GetStrings returns all string values associated with this key
+// if there are no values associated an empty array is returned
+func (p *RequestParams) GetStrings(key string) []string {
+	return p.Values[key]
 }
 
 // GetDate returns the first value associated with a given key as a time,
