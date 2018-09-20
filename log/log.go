@@ -49,10 +49,17 @@ func Timef(start time.Time, format string, args ...interface{}) {
 	Printf(format+" in %s", args...)
 }
 
-// Values prints to the ValuesLog which typically emits stats to a time series database.
+// Values values to the valueLogs which typically emit stats to a time series database.
 func Values(values map[string]interface{}) {
 	for _, l := range valueLogs {
 		l.Values(values)
+	}
+}
+
+// ValuesBatch sends an array of values to the valueLogs which typically emit stats to a time series database.
+func ValuesBatch(values []map[string]interface{}) {
+	for _, l := range valueLogs {
+		l.ValuesBatch(values)
 	}
 }
 
@@ -76,4 +83,5 @@ type PrintLogger interface {
 // ValuesLogger defines an interface for logging to a stats service.
 type ValuesLogger interface {
 	Values(values map[string]interface{})
+	ValuesBatch(values []map[string]interface{})
 }
