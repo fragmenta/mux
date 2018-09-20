@@ -3,6 +3,7 @@ package logrequest
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +12,18 @@ import (
 
 // TargetResponseTime sets the threshold for colorisation of response times
 var TargetResponseTime = 50 * time.Millisecond
+
+// hostname is set on startup to the current host
+var hostname string
+
+func init() {
+	// Load the hostname if possible
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+}
 
 // Middleware logs after each request to record to log.Printf
 // the method, the url, the status code and the response time
@@ -47,6 +60,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 		// Log the values to any value loggers (for export to monitoring services)
 		values := map[string]interface{}{
 			log.SeriesName: "requests",
+			"host":         hostname,
 			"method":       r.Method,
 			"url":          r.URL.Path,
 			"code":         code,
