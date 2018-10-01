@@ -37,3 +37,17 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
 	}
 }
+
+// HSTSMiddleware adds only the Strict-Transport-Security with a duration of 2 years
+func HSTSMiddleware(h http.HandlerFunc) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		// Allow only https connections for the next 2 years, requesting to be preloaded
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+
+		// Call the handler
+		h(w, r)
+
+	}
+}
