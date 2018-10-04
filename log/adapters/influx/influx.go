@@ -3,6 +3,7 @@ package influx
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fragmenta/mux/log"
@@ -113,7 +114,7 @@ func (l *Logger) CreatePoint(values map[string]interface{}) (*client.Point, erro
 	bucketName := "data"
 	_, ok := values[log.SeriesName]
 	if ok {
-		bucketName, ok = values[log.SeriesName].(string)
+		bucketName, ok = (values[log.SeriesName].(string))
 		if !ok {
 			l.errLogger.Printf("log values: error - bucket name is not a string")
 		}
@@ -121,15 +122,39 @@ func (l *Logger) CreatePoint(values map[string]interface{}) (*client.Point, erro
 		delete(values, log.SeriesName)
 	}
 
-	// TODO we could allow setting the time with stats_series_time?
-	time := time.Now().UTC()
+	// Set the default time to now, this can be overriden by using log.KeyNameTime
+	t := time.Now().UTC()
 
-	// At present we send an empty list of tags
-	// TODO - we could allow a prefix of influxtag_ say to set tags?
+	_, ok = values[log.KeyNameTime]
+	if ok {
+		t, ok = (values[log.KeyNameTime].(time.Time))
+		if !ok {
+			l.errLogger.Printf("log values: error - time value is not a time")
+		}
+		// Remove the key so we don't send it as a field
+		delete(values, log.KeyNameTime)
+	}
+
+	// By default tags are empty, tags may be set using log.AddTag
+	// they are then removed from values and added to tags instead
 	tags := map[string]string{}
 
-	// Create a point and add it to the batch - time is implicitly set to now
-	return client.NewPoint(bucketName, tags, values, time)
+	for k, v := range values {
+		if strings.HasPrefix(k, log.TagPrefix) {
+			s, ok := v.(string)
+			if ok {
+				delete(values, k)
+				key := strings.Replace(k, log.TagPrefix, "", 1)
+				tags[key] = s
+			} else {
+				l.errLogger.Printf("log values: error - tag value is not a string")
+			}
+		}
+
+	}
+
+	// Create a point and add it to the batch
+	return client.NewPoint(bucketName, tags, values, t)
 }
 
 // CreateBatch creates a batch attached to the db to add points to
