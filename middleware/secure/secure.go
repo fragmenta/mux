@@ -20,8 +20,8 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 		// Allow no iframing - could also restrict scripts to this domain only (+GA?)
 		w.Header().Set("Content-Security-Policy", ContentSecurityPolicy)
 
-		// Allow only https connections for the next 30 days - this is ignored on http connections
-		w.Header().Set("Strict-Transport-Security", "max-age=2592000")
+		// Allow only https connections for the next 2 years, requesting to be preloaded
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 
 		// Set ReferrerPolicy explicitly to send only the domain, not the path
 		w.Header().Set("Referrer-Policy", "strict-origin")
