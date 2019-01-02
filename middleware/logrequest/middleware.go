@@ -72,6 +72,40 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
 }
 
+// MiddlewarePrint logs after each request to record to log.Printf
+// the method, the url, the status code and the response time
+// e.g. GET / -> status 200 in 31.932146ms
+// With coloration to indicate status and response time
+// No data is sent to value loggers
+func MiddlewarePrint(h http.HandlerFunc) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Store the time prior to handling
+		start := time.Now()
+
+		// Wrap the response writer to record code
+		// Ideally we'd instead take mux.HandlerFunc
+		cw := newCodeResponseWriter(w)
+
+		// Run the handler with our recording response writer
+		h(cw, r)
+
+		// Calculate method, url, code, response time
+		method := r.Method
+		url := r.URL.Path
+		duration := time.Now().UTC().Sub(start)
+		code := cw.StatusCode
+
+		// Skip logging assets, favicon
+		if strings.HasPrefix(url, "/assets") || strings.HasPrefix(url, "/favicon.ico") {
+			return
+		}
+
+		// Pretty print to the standard loggers colorized
+		logWithColor(method, url, code, duration)
+	}
+}
+
 // isBot returns true if it thinks this request came from a bot
 // At present this is just a simplistic look at the user agent
 // for keywords. It must be fast so as not to impact performance.
