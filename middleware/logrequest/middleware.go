@@ -11,7 +11,7 @@ import (
 )
 
 // TargetResponseTime sets the threshold for colorisation of response times
-var TargetResponseTime = 50 * time.Millisecond
+var TargetResponseTime = 1 * time.Second
 
 // hostname is set on startup to the current host
 var hostname string
