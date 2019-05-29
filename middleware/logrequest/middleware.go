@@ -153,7 +153,14 @@ func logWithColor(method string, url string, code int, duration time.Duration) {
 	}
 
 	// Only 200 is green
-	if code != http.StatusOK {
+	switch code {
+	case http.StatusOK:
+		c = log.ColorGreen
+	case http.StatusMovedPermanently:
+		c = log.ColorAmber
+	case http.StatusFound:
+		c = log.ColorAmber
+	default:
 		c = log.ColorRed
 	}
 
