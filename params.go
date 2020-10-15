@@ -1,8 +1,11 @@
 package mux
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -76,6 +79,121 @@ func ParamsWithMux(m *Mux, r *http.Request) (*RequestParams, error) {
 	}
 
 	return params, nil
+}
+
+// ParamsJSON returns a new set of params parsed from the request (json included, for testing).
+// This is a temporary method for testing json parsing, we should add this capability to Params()
+func ParamsJSON(r *http.Request) (*RequestParams, error) {
+
+	params := &RequestParams{
+		Values: make(url.Values, 0),
+		Files:  make(map[string][]*multipart.FileHeader, 0),
+	}
+
+	// Find the route for request
+	route := mux.Match(r)
+	if route == nil {
+		return nil, errors.New("mux: could not find route for request")
+	}
+
+	// Parse the request path params first
+	urlParams := route.Parse(r.URL.Path)
+	for k, v := range urlParams {
+		params.Set(k, []string{v})
+	}
+
+	// Add query string params from request
+	queryParams := r.URL.Query()
+	for k, v := range queryParams {
+		params.Add(k, v)
+	}
+
+	// If the body is empty, return now without error
+	if r.Body == nil {
+		return params, nil
+	}
+
+	// Parse based on content type
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		err := r.ParseForm()
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range r.Form {
+			params.Add(k, v)
+		}
+
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		err := r.ParseMultipartForm(20 << 20) // 20MB
+		if err != nil {
+			return nil, err
+		}
+
+		// Add the form values
+		for k, v := range r.MultipartForm.Value {
+			params.Add(k, v)
+		}
+
+		// Add the form files
+		for k, v := range r.MultipartForm.File {
+			params.Files[k] = v
+		}
+	} else if strings.HasPrefix(contentType, "application/json") {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return params, err
+		}
+
+		// If no body provided, return straight away
+		if len(body) == 0 {
+			return params, err
+		}
+
+		rawData := map[string]interface{}{}
+		if err := json.Unmarshal(body, &rawData); err != nil {
+			return params, err
+		}
+
+		// Convert the underlying type of the JSON values
+		for k, v := range rawData {
+			setParam(params, k, v)
+		}
+	}
+
+	return params, nil
+}
+
+// setParam converts the underlying type of JSON values to strings that we can add
+// to the given params. Also handles arrays of strings, floats, ints, and booleans.
+func setParam(params *RequestParams, k string, v interface{}) {
+	switch v.(type) {
+	case int64:
+		params.Values.Add(k, fmt.Sprint(v))
+	case float64:
+		// JSON doesn't handle integers so we get floats
+		// interpret as integer if we don't lose information
+		f := v.(float64)
+		if f == math.Trunc(f) {
+			// Add as integer
+			params.Values.Add(k, fmt.Sprint(int64(f)))
+		} else {
+			// Add as float
+			params.Values.Add(k, fmt.Sprint(f))
+		}
+	case string, bool:
+		params.Values.Add(k, fmt.Sprint(v))
+	case []interface{}:
+
+		// If this is an array, iterate and call setParam recursively to find the underlying
+		// type of each element in the array
+		for _, i := range v.([]interface{}) {
+			setParam(params, k, i)
+		}
+	default:
+		params.Values.Add(k, "")
+	}
 }
 
 // RequestParams parses all params in a request and stores them in Values
